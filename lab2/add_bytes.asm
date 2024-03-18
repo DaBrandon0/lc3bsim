@@ -1,0 +1,23 @@
+.ORIG x3000
+LEA R0, loc
+LDW R1, R0, #0
+AND R5, R0, #0
+LDB R2, R1, #0
+LDB R3, R1, #1
+ADD R0, R2, R3
+STB R0, R1, #2
+LDB R0, R1, #2
+STB R0, R1, #2
+RSHFL R0, R0, #15
+RSHFL R2, R2, #15
+RSHFL R3, R3, #15
+XOR R4, R2, R3
+BRp skip
+XOR R0, R0, R2
+BRz skip
+STB R0, R1, #3
+BRnzp last
+skip    STB R5, R1, #3 
+last HALT
+loc .FILL x3100
+.END

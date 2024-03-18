@@ -1,0 +1,4 @@
+.ORIG x3000 
+RET
+last    TRAP x25
+.END
