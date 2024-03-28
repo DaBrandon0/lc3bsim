@@ -92,6 +92,8 @@ enum CS_BITS {
     GATE_VECTOR,
     LD_PSR,
     LD_VECTOR,
+    FLIP_MODE,
+    ADDRESSED,
     CONTROL_STORE_BITS
 } CS_BITS;
 
@@ -137,6 +139,8 @@ int GetGATE_PSR(int *x)         { return(x[GATE_PSR]); }
 int GetGATE_VECTOR(int *x)         { return(x[GATE_VECTOR]); }
 int GetLD_PSR(int *x)         { return(x[LD_PSR]); }
 int GetLD_VECTOR(int *x)         { return(x[LD_VECTOR]); }
+int GetFLIP_MODE(int *x)         { return(x[FLIP_MODE]); }
+int GetADDRESSED(int *x)         { return(x[ADDRESSED]); }
 
 /***************************************************************/
 /* The control store rom.                                      */
@@ -915,10 +919,12 @@ if (GetLD_PC(CURRENT_LATCHES.MICROINSTRUCTION))
 }
 if (GetLD_REG(CURRENT_LATCHES.MICROINSTRUCTION))
 {
-    if(GetDRMUX(CURRENT_LATCHES.MICROINSTRUCTION))
+    if(GetDRMUX(CURRENT_LATCHES.MICROINSTRUCTION) == 1)
         NEXT_LATCHES.REGS[7] = BUS;
-    else
-        NEXT_LATCHES.REGS[(int)((unsigned int)CURRENT_LATCHES.IR >> 9)&7] = BUS; 
+    else if(GetDRMUX(CURRENT_LATCHES.MICROINSTRUCTION) == 0)
+        NEXT_LATCHES.REGS[(int)((unsigned int)CURRENT_LATCHES.IR >> 9)&7] = BUS;
+    else if(GetDRMUX(CURRENT_LATCHES.MICROINSTRUCTION) == 2)
+        NEXT_LATCHES.REGS[6] = BUS; 
 }
 if (GetLD_IR(CURRENT_LATCHES.MICROINSTRUCTION))
 {
@@ -1050,9 +1056,44 @@ if(GetLD_VECTOR(CURRENT_LATCHES.MICROINSTRUCTION))
     {
         middle = 0x04;
     }
-    CURRENT_LATCHES.vector = middle;
-    
+    NEXT_LATCHES.vector = middle; 
 }
+if(GetFLIP_MODE(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+      if(CURRENT_LATCHES.PSR_15)
+        NEXT_LATCHES.PSR_15 = 0;
+      else
+        NEXT_LATCHES.PSR_15 = 1;
+    }
+
+if(GetADDRESSED(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+      if(CURRENT_LATCHES.EXCsig)
+        CURRENT_LATCHES.EXCsig = 0;
+      else
+        CURRENT_LATCHES.INTsig = 0;
+    }
+if(GetLD_PSR(CURRENT_LATCHES.MICROINSTRUCTION))
+{
+  if(BUS&32768)
+    NEXT_LATCHES.PSR_15 = 1;
+  else
+    NEXT_LATCHES.PSR_15 = 0;
+  if(BUS&4)
+    NEXT_LATCHES.N = 1;
+  else
+    NEXT_LATCHES.N = 0;
+  if(BUS&2)
+    NEXT_LATCHES.Z = 1;
+  else
+    NEXT_LATCHES.Z = 0;
+  if(BUS)
+    NEXT_LATCHES.P = 1;
+  else
+    NEXT_LATCHES.P = 0;
+}
+
+
 
 }
 
