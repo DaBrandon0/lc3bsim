@@ -584,7 +584,7 @@ int16_t addradd_res;
 int16_t signext(int num, int bite);
 
 void eval_micro_sequencer() {
-
+ 
   /* 
    * Evaluate the address of the next state according to the 
    * micro sequencer logic. Latch the next microinstruction.
