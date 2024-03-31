@@ -14,12 +14,12 @@ repeat    LDB R2, R0, #0
     ADD R4, R2, R4
     ADD R0, R0, #1
     ADD R3, R3, #-1
-    Brzp repeat
+    Brp repeat
     LEA R0, store
     LDW R0, R0, #0
     STW R4, R0, #0
     HALT
 here    .Fill x4000
 adds    .Fill xC000
-store   .Fill xC017
+store   .Fill x0000
 .END
