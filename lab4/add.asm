@@ -1,5 +1,4 @@
 .ORIG x3000
-    .FILL xA000
     LEA R0, here
     LDW R0, R0, #0
     AND R1, R1, #0

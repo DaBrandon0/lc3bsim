@@ -674,7 +674,7 @@ void eval_micro_sequencer() {
   }
   else if (GetCOND(CURRENT_LATCHES.MICROINSTRUCTION) == 4)
   {
-    if(CURRENT_LATCHES.INTsig||CURRENT_LATCHES.EXCsig)
+    if((CURRENT_LATCHES.INTsig && CURRENT_LATCHES.PSR_15)||CURRENT_LATCHES.EXCsig)
         nextstate = nextstate + 8;
   }
   }
