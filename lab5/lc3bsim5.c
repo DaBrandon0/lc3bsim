@@ -1,13 +1,13 @@
 /*
-    Name 1: Brandon Lui
-    UTEID 1: BSL846
+    Name 1: Your Name
+    UTEID 1: Your UTEID
 */
 
 /***************************************************************/
 /*                                                             */
 /*   LC-3b Simulator                                           */
 /*                                                             */
-/*   EE 460N                                                   */
+/*   EE 460N - Lab 5                                           */
 /*   The University of Texas at Austin                         */
 /*                                                             */
 /***************************************************************/
@@ -20,6 +20,7 @@
 /***************************************************************/
 /*                                                             */
 /* Files:  ucode        Microprogram file                      */
+/*         pagetable    page table in LC-3b machine language   */
 /*         isaprogram   LC-3b machine language program file    */
 /*                                                             */
 /***************************************************************/
@@ -55,7 +56,7 @@ void latch_datapath_values();
 /* Definition of bit order in control store word.              */
 /***************************************************************/
 enum CS_BITS {                                                  
-    IRD1, IRD0,
+    IRD2, IRD1, IRD0,
     COND2, COND1, COND0,
     J5, J4, J3, J2, J1, J0,
     LD_MAR,
@@ -73,8 +74,8 @@ enum CS_BITS {
     PCMUX1, PCMUX0,
     DRMUX1, DRMUX0,
     SR1MUX1, SR1MUX0,
-    ADDR1MUX,
-    ADDR2MUX1, ADDR2MUX0,
+    ADDR1MUX1, ADDR1MUX0,
+    ADDR2MUX2, ADDR2MUX1, ADDR2MUX0,
     MARMUX,
     ALUK1, ALUK0,
     MIO_EN,
@@ -94,13 +95,17 @@ enum CS_BITS {
     LD_VECTOR,
     FLIP_MODE,
     ADDRESSED,
+    LAST_STATE2, LAST_STATE1, LAST_STATE0,
+    LD_VA,
+    SET_PTE,
+    LD_LS,
     CONTROL_STORE_BITS
 } CS_BITS;
 
 /***************************************************************/
 /* Functions to get at the control bits.                       */
 /***************************************************************/
-int GetIRD(int *x)           { return((x[IRD1] << 1) + x[IRD0]); }
+int GetIRD(int *x)           { return((x[IRD2] << 2) + (x[IRD1] << 1) + x[IRD0]); }
 int GetCOND(int *x)          { return((x[COND2] << 2) + (x[COND1] << 1) + x[COND0]); }
 int GetJ(int *x)             { return((x[J5] << 5) + (x[J4] << 4) +
 				      (x[J3] << 3) + (x[J2] << 2) +
@@ -120,8 +125,8 @@ int GetGATE_SHF(int *x)      { return(x[GATE_SHF]); }
 int GetPCMUX(int *x)         { return((x[PCMUX1] << 1) + x[PCMUX0]); }
 int GetDRMUX(int *x)         { return((x[DRMUX1] << 1) + x[DRMUX0]); }
 int GetSR1MUX(int *x)        { return((x[SR1MUX1] << 1) + x[SR1MUX0]); }
-int GetADDR1MUX(int *x)      { return(x[ADDR1MUX]); }
-int GetADDR2MUX(int *x)      { return((x[ADDR2MUX1] << 1) + x[ADDR2MUX0]); }
+int GetADDR1MUX(int *x)      { return((x[ADDR1MUX1] << 1) + x[ADDR1MUX0]); }
+int GetADDR2MUX(int *x)      { return((x[ADDR2MUX2] << 2) + (x[ADDR2MUX1] << 1) + x[ADDR2MUX0]); }
 int GetMARMUX(int *x)        { return(x[MARMUX]); }
 int GetALUK(int *x)          { return((x[ALUK1] << 1) + x[ALUK0]); }
 int GetMIO_EN(int *x)        { return(x[MIO_EN]); }
@@ -141,7 +146,10 @@ int GetLD_PSR(int *x)         { return(x[LD_PSR]); }
 int GetLD_VECTOR(int *x)         { return(x[LD_VECTOR]); }
 int GetFLIP_MODE(int *x)         { return(x[FLIP_MODE]); }
 int GetADDRESSED(int *x)         { return(x[ADDRESSED]); }
-
+int GetLAST_STATE(int *x)      { return((x[LAST_STATE2] << 2) + (x[LAST_STATE1] << 1) + x[LAST_STATE0]); }
+int GetLD_VA(int *x)         { return(x[LD_VA]); }
+int GetSET_PTE(int *x)         { return(x[SET_PTE]); }
+int GetLD_LS(int *x)         { return(x[LD_LS]); }
 /***************************************************************/
 /* The control store rom.                                      */
 /***************************************************************/
@@ -156,7 +164,7 @@ int CONTROL_STORE[CONTROL_STORE_ROWS][CONTROL_STORE_BITS];
    the least significant byte of a word. WE1 is used for the most significant 
    byte of a word. */
 
-#define WORDS_IN_MEM    0x08000 
+#define WORDS_IN_MEM    0x2000 /* 32 frames */ 
 #define MEM_CYCLES      5
 int MEMORY[WORDS_IN_MEM][2];
 
@@ -197,17 +205,29 @@ int STATE_NUMBER; /* Current State Number - Provided for debugging */
 int INTV; /* Interrupt vector register */
 int EXCV; /* Exception vector register */
 int SSP; /* Initial value of system stack pointer */
-/* MODIFY: You may add system latches that are required by your implementation */
+/* MODIFY: you should add here any other registers you need to implement interrupts and exceptions */
 int INTsig;
 int EXCsig;
 int USP;
 int PSR_15;
 int vector;
+/* For lab 5 */
+int PTBR; /* This is initialized when we load the page table */
+int VA;   /* Temporary VA register */
+int last_state;
+/* MODIFY: you should add here any other registers you need to implement virtual memory */
+
 } System_Latches;
 
 /* Data Structure for Latch */
 
 System_Latches CURRENT_LATCHES, NEXT_LATCHES;
+
+/* For lab 5 */
+#define PAGE_NUM_BITS 9
+#define PTE_PFN_MASK 0x3E00
+#define PTE_VALID_MASK 0x0004
+#define PAGE_OFFSET_MASK 0x1FF
 
 /***************************************************************/
 /* A cycle counter.                                            */
@@ -499,9 +519,9 @@ void init_memory() {
 /* Purpose   : Load program and service routines into mem.    */
 /*                                                            */
 /**************************************************************/
-void load_program(char *program_filename) {                   
+void load_program(char *program_filename, int is_virtual_base) {                   
     FILE * prog;
-    int ii, word, program_base;
+    int ii, word, program_base, pte, virtual_pc;
 
     /* Open program file. */
     prog = fopen(program_filename, "r");
@@ -518,6 +538,32 @@ void load_program(char *program_filename) {
 	exit(-1);
     }
 
+    if (is_virtual_base) {
+      if (CURRENT_LATCHES.PTBR == 0) {
+	printf("Error: Page table base not loaded %s\n", program_filename);
+	exit(-1);
+      }
+
+      /* convert virtual_base to physical_base */
+      virtual_pc = program_base << 1;
+      pte = (MEMORY[(CURRENT_LATCHES.PTBR + (((program_base << 1) >> PAGE_NUM_BITS) << 1)) >> 1][1] << 8) | 
+	     MEMORY[(CURRENT_LATCHES.PTBR + (((program_base << 1) >> PAGE_NUM_BITS) << 1)) >> 1][0];
+
+      printf("virtual base of program: %04x\npte: %04x\n", program_base << 1, pte);
+		if ((pte & PTE_VALID_MASK) == PTE_VALID_MASK) {
+	      program_base = (pte & PTE_PFN_MASK) | ((program_base << 1) & PAGE_OFFSET_MASK);
+   	   printf("physical base of program: %x\n\n", program_base);
+	      program_base = program_base >> 1; 
+		} else {
+   	   printf("attempting to load a program into an invalid (non-resident) page\n\n");
+			exit(-1);
+		}
+    }
+    else {
+      /* is page table */
+     CURRENT_LATCHES.PTBR = program_base << 1;
+    }
+
     ii = 0;
     while (fscanf(prog, "%x\n", &word) != EOF) {
 	/* Make sure it fits. */
@@ -529,11 +575,12 @@ void load_program(char *program_filename) {
 
 	/* Write the word to memory array. */
 	MEMORY[program_base + ii][0] = word & 0x00FF;
-	MEMORY[program_base + ii][1] = (word >> 8) & 0x00FF;
+	MEMORY[program_base + ii][1] = (word >> 8) & 0x00FF;;
 	ii++;
     }
 
-    if (CURRENT_LATCHES.PC == 0) CURRENT_LATCHES.PC = (program_base << 1);
+    if (CURRENT_LATCHES.PC == 0 && is_virtual_base) 
+      CURRENT_LATCHES.PC = virtual_pc;
 
     printf("Read %d words from program into memory.\n\n", ii);
 }
@@ -543,7 +590,7 @@ void load_program(char *program_filename) {
 /* Procedure : initialize                                      */
 /*                                                             */
 /* Purpose   : Load microprogram and machine language program  */ 
-/*             and set up initial state of the machine.        */
+/*             and set up initial state of the machine         */
 /*                                                             */
 /***************************************************************/
 void initialize(char *argv[], int num_prog_files) { 
@@ -551,13 +598,16 @@ void initialize(char *argv[], int num_prog_files) {
     init_control_store(argv[1]);
 
     init_memory();
+    load_program(argv[2],0);
     for ( i = 0; i < num_prog_files; i++ ) {
-	load_program(argv[i + 2]);
+	load_program(argv[i + 3],1);
     }
     CURRENT_LATCHES.Z = 1;
     CURRENT_LATCHES.STATE_NUMBER = INITIAL_STATE_NUMBER;
     memcpy(CURRENT_LATCHES.MICROINSTRUCTION, CONTROL_STORE[INITIAL_STATE_NUMBER], sizeof(int)*CONTROL_STORE_BITS);
     CURRENT_LATCHES.SSP = 0x3000; /* Initial value of system stack pointer */
+
+/* MODIFY: you can add more initialization code HERE */
     CURRENT_LATCHES.INTsig = 0;
     CURRENT_LATCHES.EXCsig = 0;
     CURRENT_LATCHES.USP = 0;
@@ -577,15 +627,15 @@ int main(int argc, char *argv[]) {
     FILE * dumpsim_file;
 
     /* Error Checking */
-    if (argc < 3) {
-	printf("Error: usage: %s <micro_code_file> <program_file_1> <program_file_2> ...\n",
+    if (argc < 4) {
+	printf("Error: usage: %s <micro_code_file> <page table file> <program_file_1> <program_file_2> ...\n",
 	       argv[0]);
 	exit(1);
     }
 
     printf("LC-3b Simulator\n\n");
 
-    initialize(argv, argc - 2);
+    initialize(argv, argc - 3);
 
     if ( (dumpsim_file = fopen( "dumpsim", "w" )) == NULL ) {
 	printf("Error: Can't open dumpsim file\n");
@@ -600,9 +650,6 @@ int main(int argc, char *argv[]) {
 /***************************************************************/
 /* Do not modify the above code, except for the places indicated 
    with a "MODIFY:" comment.
-
-   Do not modify the rdump and mdump functions.
-
    You are allowed to use the following global variables in your
    code. These are defined above.
 
@@ -631,14 +678,15 @@ int16_t GateUSP_result;
 uint16_t GatePSR_result;
 int16_t GateVECTOR_result;
 
-  
 int16_t signext(int num, int bite);
 
 void eval_micro_sequencer() {
+
   /* 
    * Evaluate the address of the next state according to the 
    * micro sequencer logic. Latch the next microinstruction.
    */
+
   if (CYCLE_COUNT == 300)
     {
       NEXT_LATCHES.INTsig = 1;
@@ -680,12 +728,16 @@ void eval_micro_sequencer() {
   }
   else if (GetIRD(CURRENT_LATCHES.MICROINSTRUCTION) == 3)
   {
-    if(CURRENT_LATCHES.PSR_15 && ((CURRENT_LATCHES.MAR>>12)<=2))
+    if(CURRENT_LATCHES.PSR_15 && ((CURRENT_LATCHES.MDR&8)))
     {
         nextstate = 19;
         NEXT_LATCHES.EXCsig = 1;
         CURRENT_LATCHES.EXCsig = 1;
     }
+  }
+  else if (GetIRD(CURRENT_LATCHES.MICROINSTRUCTION) == 4)
+  {
+    nextstate = CURRENT_LATCHES.last_state;
   }
   
   else if (GetIRD(CURRENT_LATCHES.MICROINSTRUCTION) == 2)
@@ -743,7 +795,7 @@ void eval_bus_drivers() {
    *		 Gate_ALU,
    *		 Gate_SHF,
    *		 Gate_MDR.
-   */
+   */    
   int16_t addradd_op1;
   int16_t addradd_op2;
   int16_t alu_op1;
@@ -761,10 +813,14 @@ void eval_bus_drivers() {
   else if (GetSR1MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 3)
     SR1 = CURRENT_LATCHES.REGS[6];
 
-  if(GetADDR1MUX(CURRENT_LATCHES.MICROINSTRUCTION))
+  if(GetADDR1MUX(CURRENT_LATCHES.MICROINSTRUCTION)==1)
     addradd_op2 = SR1;
-  else
+  else if (GetADDR1MUX(CURRENT_LATCHES.MICROINSTRUCTION)==0)
     addradd_op2 = CURRENT_LATCHES.PC;
+  else if (GetADDR1MUX(CURRENT_LATCHES.MICROINSTRUCTION)==2)
+    addradd_op2 = CURRENT_LATCHES.PTBR&65280;
+  else if (GetADDR1MUX(CURRENT_LATCHES.MICROINSTRUCTION)==3)
+    addradd_op2 = CURRENT_LATCHES.MDR&15872;
   if(GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 0)
     addradd_op1 = 0;
   else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 1)
@@ -773,6 +829,10 @@ void eval_bus_drivers() {
     addradd_op1 = signext(CURRENT_LATCHES.IR,9);
   else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 3)
     addradd_op1 = signext(CURRENT_LATCHES.IR,11);
+    else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 4)
+    addradd_op1 = CURRENT_LATCHES.VA&65024;
+    else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 5)
+    addradd_op1 = CURRENT_LATCHES.VA&255;
   if(GetLSHF1(CURRENT_LATCHES.MICROINSTRUCTION))
     addradd_op1 = addradd_op1 << 1;
   addradd_res = addradd_op1 + addradd_op2;
@@ -869,7 +929,7 @@ void drive_bus() {
   /* 
    * Datapath routine for driving the bus from one of the 5 possible 
    * tristate drivers. 
-   */
+   */       
   if(CURRENT_LATCHES.READY == 0 && GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION))
     BUS = 0 ;
   else
@@ -895,22 +955,18 @@ void drive_bus() {
     else
     BUS = 0;
   }       
-
 }
 
 
 void latch_datapath_values() {
-
+ if(CURRENT_LATCHES.READY == 0 && GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION))
+  return;
   /* 
    * Datapath routine for computing all functions that need to latch
    * values in the data path at the end of this cycle.  Some values
    * require sourcing the bus; therefore, this routine has to come 
    * after drive_bus.
-   */  
-
-  if(CURRENT_LATCHES.READY == 0 && GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION))
-  return;
-
+   */       
 if (GetLD_PC(CURRENT_LATCHES.MICROINSTRUCTION))  
 {   
     if(GetPCMUX(CURRENT_LATCHES.MICROINSTRUCTION) == 0)
@@ -1100,9 +1156,43 @@ if(GetLD_PSR(CURRENT_LATCHES.MICROINSTRUCTION))
   else
     NEXT_LATCHES.P = 0;
 }
-
-
-
+if(GetLD_LS(CURRENT_LATCHES.MICROINSTRUCTION))
+{
+  if (GetLAST_STATE(CURRENT_LATCHES.MICROINSTRUCTION)==0)
+  {
+    NEXT_LATCHES.last_state = 24;
+  }
+  else if (GetLAST_STATE(CURRENT_LATCHES.MICROINSTRUCTION)==1)
+  {
+    NEXT_LATCHES.last_state = 23;
+  }
+  else if (GetLAST_STATE(CURRENT_LATCHES.MICROINSTRUCTION)==2)
+  {
+    NEXT_LATCHES.last_state = 25;
+  }
+  else if (GetLAST_STATE(CURRENT_LATCHES.MICROINSTRUCTION)==3)
+  {
+    NEXT_LATCHES.last_state = 29;
+  }
+  else if (GetLAST_STATE(CURRENT_LATCHES.MICROINSTRUCTION)==4)
+  {
+    NEXT_LATCHES.last_state = 28;
+  }
+  else if (GetLAST_STATE(CURRENT_LATCHES.MICROINSTRUCTION)==5)
+  {
+    NEXT_LATCHES.last_state = 33;
+  }
+}
+if(GetLD_VA(CURRENT_LATCHES.MICROINSTRUCTION))
+{
+  NEXT_LATCHES.VA = BUS;
+}
+if(GetSET_PTE(CURRENT_LATCHES.MICROINSTRUCTION))
+{
+  NEXT_LATCHES.MDR = CURRENT_LATCHES.MDR|1;
+  if(CURRENT_LATCHES.last_state == 23 || CURRENT_LATCHES.last_state == 24)
+    NEXT_LATCHES.MDR = CURRENT_LATCHES.MDR|2;
+}
 }
 
 int16_t signext(int num, int bite)
