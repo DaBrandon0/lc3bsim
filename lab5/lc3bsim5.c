@@ -728,7 +728,7 @@ void eval_micro_sequencer() {
   }
   else if (GetIRD(CURRENT_LATCHES.MICROINSTRUCTION) == 3)
   {
-    if(CURRENT_LATCHES.PSR_15 && ((CURRENT_LATCHES.MDR&8)))
+    if(CURRENT_LATCHES.MAR&1)
     {
         nextstate = 19;
         NEXT_LATCHES.EXCsig = 1;
@@ -742,7 +742,7 @@ void eval_micro_sequencer() {
   
   else if (GetIRD(CURRENT_LATCHES.MICROINSTRUCTION) == 2)
   {
-    if((CURRENT_LATCHES.PSR_15 && ((CURRENT_LATCHES.MAR>>12)<=2))||(CURRENT_LATCHES.MAR&1))
+    if((CURRENT_LATCHES.PSR_15 && !(CURRENT_LATCHES.MDR&8) && CURRENT_LATCHES.last_state != 28)||!(CURRENT_LATCHES.MDR&4))
     {
         nextstate = 19;
         NEXT_LATCHES.EXCsig = 1;
@@ -750,7 +750,7 @@ void eval_micro_sequencer() {
     }
   }
   NEXT_LATCHES.STATE_NUMBER = nextstate;
-  for (int i = 0; i<53; i++)
+  for (int i = 0; i<62; i++)
     NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[nextstate][i];
 
 }
@@ -829,9 +829,9 @@ void eval_bus_drivers() {
     addradd_op1 = signext(CURRENT_LATCHES.IR,9);
   else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 3)
     addradd_op1 = signext(CURRENT_LATCHES.IR,11);
-    else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 4)
-    addradd_op1 = CURRENT_LATCHES.VA&65024;
-    else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 5)
+  else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 4)
+    addradd_op1 = (int)((unsigned int)(CURRENT_LATCHES.VA&65024) >> 9);
+  else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 5)
     addradd_op1 = CURRENT_LATCHES.VA&255;
   if(GetLSHF1(CURRENT_LATCHES.MICROINSTRUCTION))
     addradd_op1 = addradd_op1 << 1;
@@ -1089,15 +1089,15 @@ if(GetLD_VECTOR(CURRENT_LATCHES.MICROINSTRUCTION))
 {
   
     int middle;
-    int priority = (CURRENT_LATCHES.MAR&1)*2+(CURRENT_LATCHES.PSR_15 && ((CURRENT_LATCHES.MAR>>12)<=2));
+    int priority = ((CURRENT_LATCHES.MDR&4)==0)+(CURRENT_LATCHES.PSR_15 && ((CURRENT_LATCHES.MDR&8) == 0))*2;
     int types = GetIRD(CURRENT_LATCHES.MICROINSTRUCTION);
     if (priority == 3)
     {
-        middle = 0x02;
+        middle = 0x04;
     }
     else if (priority == 2)
     {
-        middle = 0x03;
+        middle = 0x04;
     }
     else if (priority == 1)
     {
@@ -1113,7 +1113,7 @@ if(GetLD_VECTOR(CURRENT_LATCHES.MICROINSTRUCTION))
     }
     else if (types == 3)
     {
-        middle = 0x02;
+        middle = 0x03;
     }
     else if (types == 1)
     {
@@ -1121,7 +1121,7 @@ if(GetLD_VECTOR(CURRENT_LATCHES.MICROINSTRUCTION))
     }
     else if (types == 0)
     {
-        middle = 0x04;
+        middle = 0x05;
     }
     NEXT_LATCHES.vector = middle; 
 }
@@ -1185,7 +1185,7 @@ if(GetLD_LS(CURRENT_LATCHES.MICROINSTRUCTION))
 }
 if(GetLD_VA(CURRENT_LATCHES.MICROINSTRUCTION))
 {
-  NEXT_LATCHES.VA = BUS;
+  NEXT_LATCHES.VA = NEXT_LATCHES.MAR;
 }
 if(GetSET_PTE(CURRENT_LATCHES.MICROINSTRUCTION))
 {

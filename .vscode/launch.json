@@ -1,6 +1,43 @@
 {
     "configurations": [
         {
+            "name": "Dbug Lab5",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/${fileBasenameNoExtension}",
+            "args": [
+                "ucode5",
+                "pagetable.obj",
+                "add.obj",
+                "int.obj",
+                "data.obj",
+                "vector_table.obj",
+                "except_prot.obj",
+                "except_unaligned.obj",
+                "except_unknown.obj",
+                "except_fault.obj"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "C/C++: gcc build active file",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
             "name": "Dbug Lab4",
             "type": "cppdbg",
             "request": "launch",

@@ -1,9 +1,4 @@
 .ORIG x3000
-    LEA R0, here
-    LDW R0, R0, #0
-    AND R1, R1, #0
-    ADD R1, R1, #1
-    STW R1, R0, #0
     AND R3, R3, #0
     ADD R3, R3, #10
     ADD R3, R3, #10
@@ -18,8 +13,8 @@ repeat    LDB R2, R0, #0
     LEA R0, store
     LDW R0, R0, #0
     STW R4, R0, #0
+    JMP R4
     HALT
-here    .Fill x4000
 adds    .Fill xC000
-store   .Fill x0000
+store   .Fill xC014
 .END
